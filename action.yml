@@ -1,0 +1,54 @@
+name: Run a Locktivity evidence pipeline
+description: Runs a Locktivity evidence pipeline with epack and signs the pack as the calling workflow.
+author: Locktivity
+
+inputs:
+  pipeline-id:
+    description: The Locktivity pipeline ID, as shown on the pipeline page.
+    required: true
+  trusted-publishers:
+    description: Comma-separated publishers that epack may install collectors, tools, and remotes from.
+    default: locktivity
+  api-endpoint:
+    description: The Locktivity API the run signs in to. Change it only to run against another Locktivity instance.
+    default: https://api.locktivity.com
+
+runs:
+  using: composite
+  steps:
+    - name: Sign in to Locktivity
+      id: sign-in
+      shell: bash
+      env:
+        EPACK_PIPELINE_ID: ${{ inputs.pipeline-id }}
+        LOCKTIVITY_API_ENDPOINT: ${{ inputs.api-endpoint }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/sign-in.sh"
+
+    - name: Install slsa-verifier
+      if: steps.sign-in.outputs.paused != 'true'
+      uses: slsa-framework/slsa-verifier/actions/installer@ea584f4502babc6f60d9bc799dbbb13c1caa9ee6 # v2.7.1
+
+    - name: Install epack
+      if: steps.sign-in.outputs.paused != 'true'
+      shell: bash
+      env:
+        EPACK_RELEASE_TAG: ${{ steps.sign-in.outputs.epack-release-tag }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/install-epack.sh"
+
+    - name: Run the pipeline
+      id: run
+      if: steps.sign-in.outputs.paused != 'true'
+      shell: bash
+      env:
+        EPACK_PIPELINE_ID: ${{ inputs.pipeline-id }}
+        EPACK_TRUSTED_PUBLISHERS: ${{ inputs.trusted-publishers }}
+        LOCKTIVITY_API_ENDPOINT: ${{ inputs.api-endpoint }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/run.sh"
+
+    - name: Upload the evidence pack
+      if: ${{ !cancelled() && steps.run.outcome != 'skipped' }}
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: evidence-pack
+        path: ${{ runner.temp }}/epack-ci/evidence.epack
+        if-no-files-found: ignore

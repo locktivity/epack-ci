@@ -1,0 +1,21 @@
+# Runs the action from this commit against a test pipeline. Locktivity accepts
+# GitHub sign-ins only from workflow files named .github/workflows/epack*.yaml,
+# so this file needs that name.
+name: Smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  smoke:
+    if: vars.SMOKE_PIPELINE_ID != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./
+        with:
+          pipeline-id: ${{ vars.SMOKE_PIPELINE_ID }}
