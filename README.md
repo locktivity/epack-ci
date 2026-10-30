@@ -47,7 +47,6 @@ Locktivity accepts sign-ins only from this workflow file on the default branch. 
 |---|---|---|
 | `pipeline-id` | Required | The Locktivity pipeline ID. |
 | `trusted-publishers` | `locktivity` | Comma-separated publishers that epack may install collectors, tools, and remotes from. |
-| `api-endpoint` | `https://api.locktivity.com` | The Locktivity API to sign in to. Change it only to test against another Locktivity instance. |
 
 ## Organizations that allow only selected actions
 

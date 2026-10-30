@@ -9,9 +9,6 @@ inputs:
   trusted-publishers:
     description: Comma-separated publishers that epack may install collectors, tools, and remotes from.
     default: locktivity
-  api-endpoint:
-    description: The Locktivity API the run signs in to. Change it only to run against another Locktivity instance.
-    default: https://api.locktivity.com
 
 runs:
   using: composite
@@ -21,7 +18,6 @@ runs:
       shell: bash
       env:
         EPACK_PIPELINE_ID: ${{ inputs.pipeline-id }}
-        LOCKTIVITY_API_ENDPOINT: ${{ inputs.api-endpoint }}
       run: bash "$GITHUB_ACTION_PATH/scripts/sign-in.sh"
 
     - name: Install slsa-verifier
@@ -42,7 +38,6 @@ runs:
       env:
         EPACK_PIPELINE_ID: ${{ inputs.pipeline-id }}
         EPACK_TRUSTED_PUBLISHERS: ${{ inputs.trusted-publishers }}
-        LOCKTIVITY_API_ENDPOINT: ${{ inputs.api-endpoint }}
       run: bash "$GITHUB_ACTION_PATH/scripts/run.sh"
 
     - name: Upload the evidence pack

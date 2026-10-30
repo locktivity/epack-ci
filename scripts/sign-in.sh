@@ -20,10 +20,14 @@ if [ "${RUNNER_OS:-}" != "Linux" ] || [ "${RUNNER_ARCH:-}" != "X64" ]; then
   exit 1
 fi
 
-api_endpoint="${LOCKTIVITY_API_ENDPOINT%/}"
+api_endpoint=$(locktivity_api)
 if [[ ! "${EPACK_PIPELINE_ID:-}" =~ ^[A-Za-z0-9_-]{1,64}$ ]]; then
   echo "::error::pipeline-id must be the pipeline's ID, as shown on its page in Locktivity."
   exit 1
+fi
+
+if [ "$api_endpoint" != "https://api.locktivity.com" ]; then
+  echo "::warning title=Not Locktivity's API::$(escape_command_data "This run signs in to $api_endpoint because EPACK_INSECURE_CREDENTIAL_BROKER_URL is set. Remove it unless you are testing against another Locktivity.")"
 fi
 
 mint_id_token "$api_endpoint"

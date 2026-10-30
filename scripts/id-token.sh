@@ -1,6 +1,14 @@
 # shellcheck shell=bash
 # Sourced by the scripts that sign in.
 
+# The Locktivity API runs sign in to, and the audience of their ID tokens.
+# epack's EPACK_INSECURE_CREDENTIAL_BROKER_URL points epack at another
+# Locktivity for testing, so the action's own sign-in follows it too.
+locktivity_api() {
+  local api="${EPACK_INSECURE_CREDENTIAL_BROKER_URL:-https://api.locktivity.com}"
+  printf '%s' "${api%/}"
+}
+
 # Sets ID_TOKEN to a GitHub Actions ID token for the audience in $1 and
 # masks it in the job log.
 mint_id_token() {

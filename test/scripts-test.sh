@@ -23,7 +23,7 @@ token_url="http://127.0.0.1:$port/token?api-version=2.0"
 sign_in() {
   : >"$scratch/output"
   set +e
-  out=$(EPACK_PIPELINE_ID="$1" LOCKTIVITY_API_ENDPOINT="http://127.0.0.1:$port/" \
+  out=$(EPACK_PIPELINE_ID="$1" EPACK_INSECURE_CREDENTIAL_BROKER_URL="http://127.0.0.1:$port/" \
     ACTIONS_ID_TOKEN_REQUEST_URL="${2-$token_url}" ACTIONS_ID_TOKEN_REQUEST_TOKEN="request-token" \
     GITHUB_OUTPUT="$scratch/output" RUNNER_TEMP="$scratch" RUNNER_OS="${3-Linux}" RUNNER_ARCH="${4-X64}" \
     bash "$root/scripts/sign-in.sh" 2>&1)
@@ -53,6 +53,7 @@ check "the release goes to the step's outputs" [ "$outputs" = "epack-release-tag
 check "the ID token is masked" contains "$out" "::add-mask::id-token-for:http"
 check "the session's access token is never printed" lacks "$out" "ltk_fixture_session"
 check "the session response is not kept" [ -z "$(find "$scratch" -name 'epack-ci-session.*')" ]
+check "signing in to another Locktivity is flagged on the run" contains "$out" "::warning title=Not Locktivity's API::This run signs in to http://127.0.0.1:$port because EPACK_INSECURE_CREDENTIAL_BROKER_URL is set."
 
 sign_in paused
 check "a paused pipeline ends without failing" [ "$status" -eq 0 ]
@@ -107,8 +108,8 @@ chmod +x "$scratch/bin/epack"
 
 run_pipeline() {
   set +e
-  out=$(PATH="$scratch/bin:$PATH" EPACK_STUB_LOG="$scratch/epack.log" \
-    EPACK_PIPELINE_ID="current" EPACK_TRUSTED_PUBLISHERS="locktivity,acme" LOCKTIVITY_API_ENDPOINT="$1" \
+  out=$(env ${1:+"EPACK_INSECURE_CREDENTIAL_BROKER_URL=$1"} PATH="$scratch/bin:$PATH" EPACK_STUB_LOG="$scratch/epack.log" \
+    EPACK_PIPELINE_ID="current" EPACK_TRUSTED_PUBLISHERS="locktivity,acme" \
     ACTIONS_ID_TOKEN_REQUEST_URL="$token_url" ACTIONS_ID_TOKEN_REQUEST_TOKEN="request-token" RUNNER_TEMP="$scratch" \
     bash "$root/scripts/run.sh" 2>&1)
   status=$?
@@ -116,20 +117,18 @@ run_pipeline() {
   epack_saw=$(cat "$scratch/epack.log")
 }
 
-run_pipeline "https://api.locktivity.com"
+run_pipeline ""
 check "a run starts epack" [ "$status" -eq 0 ]
 check "epack runs the pipeline by ID and writes the pack where the upload looks" contains "$epack_saw" "args=run current --remote locktivity --yes --output $scratch/epack-ci/evidence.epack"
 check "epack runs outside the workspace" contains "$epack_saw" "cwd=$scratch/epack-ci"
 check "epack gets an ID token for the Locktivity audience" contains "$epack_saw" "LOCKTIVITY_ID_TOKEN=id-token-for:https://api.locktivity.com"
 check "epack gets the trusted publishers" contains "$epack_saw" "EPACK_TRUSTED_PUBLISHERS=locktivity,acme"
-check "the production API sets no development endpoints" lacks "$epack_saw" "EPACK_INSECURE_"
+check "a production run sets no endpoint overrides" lacks "$epack_saw" "EPACK_INSECURE_"
 check "the run masks the ID token" contains "$out" "::add-mask::id-token-for:https://api.locktivity.com"
 
 run_pipeline "https://dev.example.test/"
-check "another API points epack's credential broker at it" contains "$epack_saw" "EPACK_INSECURE_CREDENTIAL_BROKER_URL=https://dev.example.test"
-check "another API points epack's remote at it" contains "$epack_saw" "EPACK_INSECURE_REMOTE_ENDPOINT=https://dev.example.test"
-check "another API points epack's remote sign-in at it" contains "$epack_saw" "EPACK_INSECURE_REMOTE_AUTH_ENDPOINT=https://dev.example.test"
-check "another API is the ID token's audience" contains "$epack_saw" "LOCKTIVITY_ID_TOKEN=id-token-for:https://dev.example.test"
+check "an insecure broker URL is the ID token's audience" contains "$epack_saw" "LOCKTIVITY_ID_TOKEN=id-token-for:https://dev.example.test"
+check "the action adds no endpoint overrides of its own" lacks "$epack_saw" "EPACK_INSECURE_REMOTE"
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures failed"
